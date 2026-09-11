@@ -33,7 +33,6 @@ public class FloatingBallService extends Service {
         windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
 
         floatingBall = new ImageView(this);
-        floatingBall.setImageResource(R.mipmap.ic_launcher);
 
         final WindowManager.LayoutParams params = new WindowManager.LayoutParams(
                 WindowManager.LayoutParams.WRAP_CONTENT,
@@ -55,7 +54,7 @@ public class FloatingBallService extends Service {
                 return true;
             }
 
-            @Override
+            
             public boolean onTripleTap(MotionEvent e) {
                 Animation animation = AnimationUtils.loadAnimation(FloatingBallService.this, R.anim.bounce_animation);
                 floatingBall.startAnimation(animation);
