@@ -24,6 +24,7 @@ public class FloatingBallService extends Service {
     private GestureDetector gestureDetector;
     private Handler handler;
     private int tapCount = 0;
+    private SmartFeatureModule smartFeatureModule;
 
     @Override
     public IBinder onBind(Intent intent) {
@@ -41,6 +42,7 @@ public class FloatingBallService extends Service {
 
         windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
         handler = new Handler();
+        smartFeatureModule = SmartFeatureModule.getInstance();
 
         floatingBall = new ImageView(this);
         floatingBall.setImageResource(R.drawable.ball);
@@ -51,7 +53,6 @@ public class FloatingBallService extends Service {
         greetingText.setText(getGreeting());
         greetingText.setBackgroundResource(R.drawable.speech_bubble);
         greetingText.setVisibility(View.GONE);
-
 
         final WindowManager.LayoutParams ballParams = new WindowManager.LayoutParams(
                 WindowManager.LayoutParams.WRAP_CONTENT,
@@ -75,7 +76,6 @@ public class FloatingBallService extends Service {
         textParams.x = 0;
         textParams.y = 0;
 
-
         windowManager.addView(floatingBall, ballParams);
         windowManager.addView(greetingText, textParams);
 
@@ -88,13 +88,14 @@ public class FloatingBallService extends Service {
                         @Override
                         public void run() {
                             if (tapCount == 1) {
+                                greetingText.setText(getGreeting());
                                 greetingText.setVisibility(View.VISIBLE);
                                 handler.postDelayed(new Runnable() {
                                     @Override
                                     public void run() {
                                         greetingText.setVisibility(View.GONE);
                                     }
-                                }, 1000);
+                                }, 2000);
                             } else if (tapCount >= 4) {
                                 Intent intent = new Intent(FloatingBallService.this, MainActivity.class);
                                 intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
@@ -140,6 +141,17 @@ public class FloatingBallService extends Service {
     }
 
     private String getGreeting() {
+        if (smartFeatureModule != null) {
+            String screenContent = smartFeatureModule.getScreenContent();
+            if (screenContent != null && !screenContent.isEmpty()) {
+                if (screenContent.toLowerCase().contains("game")) {
+                    return "Good luck with your game!";
+                } else if (screenContent.toLowerCase().contains("work")) {
+                    return "Hope work is going well!";
+                }
+            }
+        }
+
         Calendar c = Calendar.getInstance();
         int timeOfDay = c.get(Calendar.HOUR_OF_DAY);
 
