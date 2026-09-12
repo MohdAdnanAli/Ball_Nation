@@ -2,6 +2,7 @@ package com.example.myapplication;
 
 import android.app.Service;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.graphics.PixelFormat;
 import android.os.IBinder;
 import android.view.GestureDetector;
@@ -25,6 +26,18 @@ public class FloatingBallService extends Service {
     private Handler handler;
     private int tapCount = 0;
     private SmartFeatureModule smartFeatureModule;
+    private Handler inactivityHandler = new Handler();
+    private boolean isPeeking = false;
+    private WindowManager.LayoutParams ballParams;
+    private SharedPreferences sharedPreferences;
+
+    private Runnable inactivityRunnable = new Runnable() {
+        @Override
+        public void run() {
+            floatingBall.setAlpha(0.5f);
+            isPeeking = true;
+        }
+    };
 
     @Override
     public IBinder onBind(Intent intent) {
@@ -43,6 +56,7 @@ public class FloatingBallService extends Service {
         windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
         handler = new Handler();
         smartFeatureModule = SmartFeatureModule.getInstance();
+        sharedPreferences = getSharedPreferences("FloatingBallPrefs", MODE_PRIVATE);
 
         floatingBall = new ImageView(this);
         floatingBall.setImageResource(R.drawable.ball);
@@ -54,16 +68,16 @@ public class FloatingBallService extends Service {
         greetingText.setBackgroundResource(R.drawable.speech_bubble);
         greetingText.setVisibility(View.GONE);
 
-        final WindowManager.LayoutParams ballParams = new WindowManager.LayoutParams(
-                WindowManager.LayoutParams.WRAP_CONTENT,
-                WindowManager.LayoutParams.WRAP_CONTENT,
+        ballParams = new WindowManager.LayoutParams(
+                100,
+                100,
                 WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
                 WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
                 PixelFormat.TRANSLUCENT);
 
         ballParams.gravity = Gravity.TOP | Gravity.LEFT;
-        ballParams.x = 0;
-        ballParams.y = 100;
+        ballParams.x = sharedPreferences.getInt("ball_x", 0);
+        ballParams.y = sharedPreferences.getInt("ball_y", 100);
 
         final WindowManager.LayoutParams textParams = new WindowManager.LayoutParams(
                 WindowManager.LayoutParams.WRAP_CONTENT,
@@ -79,9 +93,12 @@ public class FloatingBallService extends Service {
         windowManager.addView(floatingBall, ballParams);
         windowManager.addView(greetingText, textParams);
 
+        startInactivityTimer();
+
         gestureDetector = new GestureDetector(this, new GestureDetector.SimpleOnGestureListener() {
             @Override
             public boolean onSingleTapConfirmed(MotionEvent e) {
+                resetInactivityTimer();
                 tapCount++;
                 if (tapCount == 1) {
                     handler.postDelayed(new Runnable() {
@@ -117,6 +134,13 @@ public class FloatingBallService extends Service {
 
             @Override
             public boolean onTouch(View v, MotionEvent event) {
+                if (isPeeking) {
+                    floatingBall.setAlpha(1.0f);
+                    isPeeking = false;
+                    resetInactivityTimer();
+                    return true;
+                }
+
                 gestureDetector.onTouchEvent(event);
 
                 switch (event.getAction()) {
@@ -127,6 +151,7 @@ public class FloatingBallService extends Service {
                         initialTouchY = event.getRawY();
                         return true;
                     case MotionEvent.ACTION_MOVE:
+                        resetInactivityTimer();
                         ballParams.x = initialX + (int) (event.getRawX() - initialTouchX);
                         ballParams.y = initialY + (int) (event.getRawY() - initialTouchY);
                         textParams.x = ballParams.x - (greetingText.getWidth() - floatingBall.getWidth()) / 2;
@@ -138,6 +163,15 @@ public class FloatingBallService extends Service {
                 return false;
             }
         });
+    }
+
+    private void startInactivityTimer() {
+        inactivityHandler.postDelayed(inactivityRunnable, 5000); // 5 seconds
+    }
+
+    private void resetInactivityTimer() {
+        inactivityHandler.removeCallbacks(inactivityRunnable);
+        startInactivityTimer();
     }
 
     private String getGreeting() {
@@ -169,6 +203,15 @@ public class FloatingBallService extends Service {
     @Override
     public void onDestroy() {
         super.onDestroy();
+        inactivityHandler.removeCallbacks(inactivityRunnable);
+
+        if (ballParams != null) {
+            SharedPreferences.Editor editor = sharedPreferences.edit();
+            editor.putInt("ball_x", ballParams.x);
+            editor.putInt("ball_y", ballParams.y);
+            editor.apply();
+        }
+
         if (floatingBall != null) {
             windowManager.removeView(floatingBall);
         }
