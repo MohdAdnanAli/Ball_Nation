@@ -33,6 +33,7 @@ public class FloatingBallService extends Service {
         windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
 
         floatingBall = new ImageView(this);
+        floatingBall.setImageResource(android.R.drawable.sym_def_app_icon);
 
         final WindowManager.LayoutParams params = new WindowManager.LayoutParams(
                 WindowManager.LayoutParams.WRAP_CONTENT,
