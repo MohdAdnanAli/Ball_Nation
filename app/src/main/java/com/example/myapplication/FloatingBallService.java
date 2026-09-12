@@ -14,6 +14,7 @@ import android.view.animation.AnimationUtils;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.os.Handler;
+import java.util.Calendar;
 
 public class FloatingBallService extends Service {
 
@@ -22,11 +23,16 @@ public class FloatingBallService extends Service {
     private TextView greetingText;
     private GestureDetector gestureDetector;
     private Handler handler;
-    private boolean doubleTapped = false;
+    private int tapCount = 0;
 
     @Override
     public IBinder onBind(Intent intent) {
         return null;
+    }
+
+    @Override
+    public int onStartCommand(Intent intent, int flags, int startId) {
+        return START_STICKY;
     }
 
     @Override
@@ -38,9 +44,11 @@ public class FloatingBallService extends Service {
 
         floatingBall = new ImageView(this);
         floatingBall.setImageResource(R.drawable.ball);
+        Animation glowAnimation = AnimationUtils.loadAnimation(this, R.anim.glow_multicolor_animation);
+        floatingBall.startAnimation(glowAnimation);
 
         greetingText = new TextView(this);
-        greetingText.setText("Hi!");
+        greetingText.setText(getGreeting());
         greetingText.setBackgroundResource(R.drawable.speech_bubble);
         greetingText.setVisibility(View.GONE);
 
@@ -73,23 +81,29 @@ public class FloatingBallService extends Service {
 
         gestureDetector = new GestureDetector(this, new GestureDetector.SimpleOnGestureListener() {
             @Override
-            public boolean onDoubleTap(MotionEvent e) {
-                greetingText.setVisibility(View.VISIBLE);
-                handler.postDelayed(new Runnable() {
-                    @Override
-                    public void run() {
-                        greetingText.setVisibility(View.GONE);
-                    }
-                }, 1000);
-
-                doubleTapped = true;
-                handler.postDelayed(new Runnable() {
-                    @Override
-                    public void run() {
-                        doubleTapped = false;
-                    }
-                }, 300); // 300ms window for triple tap
-
+            public boolean onSingleTapConfirmed(MotionEvent e) {
+                tapCount++;
+                if (tapCount == 1) {
+                    handler.postDelayed(new Runnable() {
+                        @Override
+                        public void run() {
+                            if (tapCount == 1) {
+                                greetingText.setVisibility(View.VISIBLE);
+                                handler.postDelayed(new Runnable() {
+                                    @Override
+                                    public void run() {
+                                        greetingText.setVisibility(View.GONE);
+                                    }
+                                }, 1000);
+                            } else if (tapCount >= 4) {
+                                Intent intent = new Intent(FloatingBallService.this, MainActivity.class);
+                                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                                startActivity(intent);
+                            }
+                            tapCount = 0;
+                        }
+                    }, 500);
+                }
                 return true;
             }
         });
@@ -106,12 +120,6 @@ public class FloatingBallService extends Service {
 
                 switch (event.getAction()) {
                     case MotionEvent.ACTION_DOWN:
-                        if (doubleTapped) {
-                            Animation animation = AnimationUtils.loadAnimation(FloatingBallService.this, R.anim.catchy_animation);
-                            floatingBall.startAnimation(animation);
-                            doubleTapped = false;
-                            return true; // Consume the event
-                        }
                         initialX = ballParams.x;
                         initialY = ballParams.y;
                         initialTouchX = event.getRawX();
@@ -129,6 +137,21 @@ public class FloatingBallService extends Service {
                 return false;
             }
         });
+    }
+
+    private String getGreeting() {
+        Calendar c = Calendar.getInstance();
+        int timeOfDay = c.get(Calendar.HOUR_OF_DAY);
+
+        if (timeOfDay >= 0 && timeOfDay < 12) {
+            return "Good morning!";
+        } else if (timeOfDay >= 12 && timeOfDay < 16) {
+            return "Good afternoon!";
+        } else if (timeOfDay >= 16 && timeOfDay < 21) {
+            return "Good evening!";
+        } else {
+            return "Good night!";
+        }
     }
 
     @Override
