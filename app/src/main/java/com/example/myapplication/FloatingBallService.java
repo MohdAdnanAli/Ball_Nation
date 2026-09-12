@@ -1,4 +1,3 @@
-
 package com.example.myapplication;
 
 import android.app.Service;
@@ -13,13 +12,17 @@ import android.view.WindowManager;
 import android.view.animation.Animation;
 import android.view.animation.AnimationUtils;
 import android.widget.ImageView;
-import android.widget.Toast;
+import android.widget.TextView;
+import android.os.Handler;
 
 public class FloatingBallService extends Service {
 
     private WindowManager windowManager;
     private ImageView floatingBall;
+    private TextView greetingText;
     private GestureDetector gestureDetector;
+    private Handler handler;
+    private boolean doubleTapped = false;
 
     @Override
     public IBinder onBind(Intent intent) {
@@ -31,34 +34,62 @@ public class FloatingBallService extends Service {
         super.onCreate();
 
         windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
+        handler = new Handler();
 
         floatingBall = new ImageView(this);
-        floatingBall.setImageResource(android.R.drawable.sym_def_app_icon);
+        floatingBall.setImageResource(R.drawable.ball);
 
-        final WindowManager.LayoutParams params = new WindowManager.LayoutParams(
+        greetingText = new TextView(this);
+        greetingText.setText("Hi!");
+        greetingText.setBackgroundResource(R.drawable.speech_bubble);
+        greetingText.setVisibility(View.GONE);
+
+
+        final WindowManager.LayoutParams ballParams = new WindowManager.LayoutParams(
                 WindowManager.LayoutParams.WRAP_CONTENT,
                 WindowManager.LayoutParams.WRAP_CONTENT,
                 WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
                 WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
                 PixelFormat.TRANSLUCENT);
 
-        params.gravity = Gravity.TOP | Gravity.LEFT;
-        params.x = 0;
-        params.y = 100;
+        ballParams.gravity = Gravity.TOP | Gravity.LEFT;
+        ballParams.x = 0;
+        ballParams.y = 100;
 
-        windowManager.addView(floatingBall, params);
+        final WindowManager.LayoutParams textParams = new WindowManager.LayoutParams(
+                WindowManager.LayoutParams.WRAP_CONTENT,
+                WindowManager.LayoutParams.WRAP_CONTENT,
+                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+                PixelFormat.TRANSLUCENT);
+
+        textParams.gravity = Gravity.TOP | Gravity.LEFT;
+        textParams.x = 0;
+        textParams.y = 0;
+
+
+        windowManager.addView(floatingBall, ballParams);
+        windowManager.addView(greetingText, textParams);
 
         gestureDetector = new GestureDetector(this, new GestureDetector.SimpleOnGestureListener() {
             @Override
             public boolean onDoubleTap(MotionEvent e) {
-                Toast.makeText(FloatingBallService.this, "Hi", Toast.LENGTH_SHORT).show();
-                return true;
-            }
+                greetingText.setVisibility(View.VISIBLE);
+                handler.postDelayed(new Runnable() {
+                    @Override
+                    public void run() {
+                        greetingText.setVisibility(View.GONE);
+                    }
+                }, 1000);
 
-            
-            public boolean onTripleTap(MotionEvent e) {
-                Animation animation = AnimationUtils.loadAnimation(FloatingBallService.this, R.anim.bounce_animation);
-                floatingBall.startAnimation(animation);
+                doubleTapped = true;
+                handler.postDelayed(new Runnable() {
+                    @Override
+                    public void run() {
+                        doubleTapped = false;
+                    }
+                }, 300); // 300ms window for triple tap
+
                 return true;
             }
         });
@@ -72,17 +103,27 @@ public class FloatingBallService extends Service {
             @Override
             public boolean onTouch(View v, MotionEvent event) {
                 gestureDetector.onTouchEvent(event);
+
                 switch (event.getAction()) {
                     case MotionEvent.ACTION_DOWN:
-                        initialX = params.x;
-                        initialY = params.y;
+                        if (doubleTapped) {
+                            Animation animation = AnimationUtils.loadAnimation(FloatingBallService.this, R.anim.catchy_animation);
+                            floatingBall.startAnimation(animation);
+                            doubleTapped = false;
+                            return true; // Consume the event
+                        }
+                        initialX = ballParams.x;
+                        initialY = ballParams.y;
                         initialTouchX = event.getRawX();
                         initialTouchY = event.getRawY();
                         return true;
                     case MotionEvent.ACTION_MOVE:
-                        params.x = initialX + (int) (event.getRawX() - initialTouchX);
-                        params.y = initialY + (int) (event.getRawY() - initialTouchY);
-                        windowManager.updateViewLayout(floatingBall, params);
+                        ballParams.x = initialX + (int) (event.getRawX() - initialTouchX);
+                        ballParams.y = initialY + (int) (event.getRawY() - initialTouchY);
+                        textParams.x = ballParams.x - (greetingText.getWidth() - floatingBall.getWidth()) / 2;
+                        textParams.y = ballParams.y - greetingText.getHeight();
+                        windowManager.updateViewLayout(floatingBall, ballParams);
+                        windowManager.updateViewLayout(greetingText, textParams);
                         return true;
                 }
                 return false;
@@ -95,6 +136,9 @@ public class FloatingBallService extends Service {
         super.onDestroy();
         if (floatingBall != null) {
             windowManager.removeView(floatingBall);
+        }
+        if (greetingText != null) {
+            windowManager.removeView(greetingText);
         }
     }
 }
