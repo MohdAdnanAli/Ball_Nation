@@ -9,27 +9,39 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.Toast;
 
-import androidx.annotation.Nullable;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
 
 public class SplashActivity extends AppCompatActivity {
 
-    private static final int OVERLAY_PERMISSION_REQUEST_CODE = 1;
-    private static final int ACCESSIBILITY_SERVICE_REQUEST_CODE = 2;
+    private ActivityResultLauncher<Intent> overlayPermissionLauncher;
+    private ActivityResultLauncher<Intent> accessibilityServiceLauncher;
 
     @Override
-    protected void onCreate(@Nullable Bundle savedInstanceState) {
+    protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_splash);
 
         Button grantPermissionButton = findViewById(R.id.grant_permission_button);
-        grantPermissionButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                checkAndRequestPermissions();
-            }
-        });
+        grantPermissionButton.setOnClickListener(v -> checkAndRequestPermissions());
 
+        overlayPermissionLauncher = registerForActivityResult(
+                new ActivityResultContracts.StartActivityForResult(),
+                result -> {
+                    // onResume will handle the permission check
+                });
+
+        accessibilityServiceLauncher = registerForActivityResult(
+                new ActivityResultContracts.StartActivityForResult(),
+                result -> {
+                    // onResume will handle the permission check
+                });
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
         checkAndRequestPermissions();
     }
 
@@ -46,32 +58,13 @@ public class SplashActivity extends AppCompatActivity {
     private void requestOverlayPermission() {
         Intent intent = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
                 Uri.parse("package:" + getPackageName()));
-        startActivityForResult(intent, OVERLAY_PERMISSION_REQUEST_CODE);
+        overlayPermissionLauncher.launch(intent);
     }
 
     private void requestAccessibilityServicePermission() {
         Intent intent = new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS);
-        startActivityForResult(intent, ACCESSIBILITY_SERVICE_REQUEST_CODE);
+        accessibilityServiceLauncher.launch(intent);
         Toast.makeText(this, "Please enable the accessibility service for My Application", Toast.LENGTH_LONG).show();
-    }
-
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-
-        if (requestCode == OVERLAY_PERMISSION_REQUEST_CODE) {
-            if (Settings.canDrawOverlays(this)) {
-                checkAndRequestPermissions();
-            } else {
-                Toast.makeText(this, "Overlay permission is required to use the floating ball.", Toast.LENGTH_SHORT).show();
-            }
-        } else if (requestCode == ACCESSIBILITY_SERVICE_REQUEST_CODE) {
-            if (isAccessibilityServiceEnabled()) {
-                checkAndRequestPermissions();
-            } else {
-                Toast.makeText(this, "Accessibility service is required for smart features.", Toast.LENGTH_SHORT).show();
-            }
-        }
     }
 
     private boolean isAccessibilityServiceEnabled() {
