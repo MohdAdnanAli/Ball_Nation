@@ -3,14 +3,23 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:padding="16dp"
     tools:context=".MainActivity">
+
+    <ImageView
+        android:id="@+id/floating_ball_preview"
+        android:layout_width="80dp"
+        android:layout_height="80dp"
+        android:layout_centerInParent="true"
+        android:src="@drawable/subtle_ball" />
 
     <ToggleButton
         android:id="@+id/toggle_button"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_centerInParent="true"
-        android:textOn="Ball On"
-        android:textOff="Ball Off"/>
+        android:layout_alignParentBottom="true"
+        android:layout_centerHorizontal="true"
+        android:textOn="Stop Service"
+        android:textOff="Start Service" />
 
 </RelativeLayout>

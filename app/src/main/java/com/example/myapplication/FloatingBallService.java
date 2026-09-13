@@ -1,5 +1,7 @@
 package com.example.myapplication;
 
+import android.animation.AnimatorInflater;
+import android.animation.AnimatorSet;
 import android.app.Service;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -10,8 +12,6 @@ import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.WindowManager;
-import android.view.animation.Animation;
-import android.view.animation.AnimationUtils;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.os.Handler;
@@ -59,9 +59,7 @@ public class FloatingBallService extends Service {
         sharedPreferences = getSharedPreferences("FloatingBallPrefs", MODE_PRIVATE);
 
         floatingBall = new ImageView(this);
-        floatingBall.setImageResource(R.drawable.ball);
-        Animation glowAnimation = AnimationUtils.loadAnimation(this, R.anim.glow_multicolor_animation);
-        floatingBall.startAnimation(glowAnimation);
+        floatingBall.setImageResource(R.drawable.subtle_ball);
 
         greetingText = new TextView(this);
         greetingText.setText(getGreeting());
@@ -69,8 +67,8 @@ public class FloatingBallService extends Service {
         greetingText.setVisibility(View.GONE);
 
         ballParams = new WindowManager.LayoutParams(
-                100,
-                100,
+                WindowManager.LayoutParams.WRAP_CONTENT,
+                WindowManager.LayoutParams.WRAP_CONTENT,
                 WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
                 WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
                 PixelFormat.TRANSLUCENT);
@@ -92,6 +90,10 @@ public class FloatingBallService extends Service {
 
         windowManager.addView(floatingBall, ballParams);
         windowManager.addView(greetingText, textParams);
+
+        AnimatorSet breathingAnimation = (AnimatorSet) AnimatorInflater.loadAnimator(this, R.animator.breathing);
+        breathingAnimation.setTarget(floatingBall);
+        breathingAnimation.start();
 
         startInactivityTimer();
 
