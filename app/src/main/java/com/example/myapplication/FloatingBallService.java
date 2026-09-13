@@ -7,6 +7,7 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.PixelFormat;
 import android.os.IBinder;
+import android.util.Log;
 import android.view.GestureDetector;
 import android.view.Gravity;
 import android.view.MotionEvent;
@@ -19,6 +20,7 @@ import java.util.Calendar;
 
 public class FloatingBallService extends Service {
 
+    private static final String TAG = "FloatingBallService";
     private WindowManager windowManager;
     private ImageView floatingBall;
     private TextView greetingText;
@@ -29,6 +31,7 @@ public class FloatingBallService extends Service {
     private Handler inactivityHandler = new Handler();
     private boolean isPeeking = false;
     private WindowManager.LayoutParams ballParams;
+    private WindowManager.LayoutParams textParams;
     private SharedPreferences sharedPreferences;
 
     private Runnable inactivityRunnable = new Runnable() {
@@ -77,7 +80,7 @@ public class FloatingBallService extends Service {
         ballParams.x = sharedPreferences.getInt("ball_x", 0);
         ballParams.y = sharedPreferences.getInt("ball_y", 100);
 
-        final WindowManager.LayoutParams textParams = new WindowManager.LayoutParams(
+        textParams = new WindowManager.LayoutParams(
                 WindowManager.LayoutParams.WRAP_CONTENT,
                 WindowManager.LayoutParams.WRAP_CONTENT,
                 WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
@@ -88,8 +91,12 @@ public class FloatingBallService extends Service {
         textParams.x = 0;
         textParams.y = 0;
 
-        windowManager.addView(floatingBall, ballParams);
-        windowManager.addView(greetingText, textParams);
+        try {
+            windowManager.addView(floatingBall, ballParams);
+            windowManager.addView(greetingText, textParams);
+        } catch (Exception e) {
+            Log.e(TAG, "Error adding views to window manager", e);
+        }
 
         AnimatorSet breathingAnimation = (AnimatorSet) AnimatorInflater.loadAnimator(this, R.animator.breathing);
         breathingAnimation.setTarget(floatingBall);
@@ -108,6 +115,17 @@ public class FloatingBallService extends Service {
                         public void run() {
                             if (tapCount == 1) {
                                 greetingText.setText(getGreeting());
+
+                                // Manually measure the view to get its dimensions
+                                greetingText.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED);
+                                int textWidth = greetingText.getMeasuredWidth();
+                                int textHeight = greetingText.getMeasuredHeight();
+
+                                // Calculate the position of the speech bubble
+                                textParams.x = ballParams.x - (textWidth - floatingBall.getWidth()) / 2;
+                                textParams.y = ballParams.y - textHeight;
+                                windowManager.updateViewLayout(greetingText, textParams);
+
                                 greetingText.setVisibility(View.VISIBLE);
                                 handler.postDelayed(new Runnable() {
                                     @Override
@@ -153,13 +171,14 @@ public class FloatingBallService extends Service {
                         initialTouchY = event.getRawY();
                         return true;
                     case MotionEvent.ACTION_MOVE:
-                        resetInactivityTimer();
-                        ballParams.x = initialX + (int) (event.getRawX() - initialTouchX);
-                        ballParams.y = initialY + (int) (event.getRawY() - initialTouchY);
-                        textParams.x = ballParams.x - (greetingText.getWidth() - floatingBall.getWidth()) / 2;
-                        textParams.y = ballParams.y - greetingText.getHeight();
-                        windowManager.updateViewLayout(floatingBall, ballParams);
-                        windowManager.updateViewLayout(greetingText, textParams);
+                        try {
+                            resetInactivityTimer();
+                            ballParams.x = initialX + (int) (event.getRawX() - initialTouchX);
+                            ballParams.y = initialY + (int) (event.getRawY() - initialTouchY);
+                            windowManager.updateViewLayout(floatingBall, ballParams);
+                        } catch (Exception ex) {
+                            Log.e(TAG, "Error updating view layout during move", ex);
+                        }
                         return true;
                 }
                 return false;
@@ -214,11 +233,15 @@ public class FloatingBallService extends Service {
             editor.apply();
         }
 
-        if (floatingBall != null) {
-            windowManager.removeView(floatingBall);
-        }
-        if (greetingText != null) {
-            windowManager.removeView(greetingText);
+        try {
+            if (floatingBall != null) {
+                windowManager.removeView(floatingBall);
+            }
+            if (greetingText != null) {
+                windowManager.removeView(greetingText);
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error removing views from window manager", e);
         }
     }
 }
