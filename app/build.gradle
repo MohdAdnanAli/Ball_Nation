@@ -6,15 +6,6 @@ android {
     compileSdkVersion 30
     buildToolsVersion "30.0.3"
 
-    signingConfigs {
-        release {
-            storeFile file('keystore.jks')
-            storePassword 'my-password'
-            keyAlias 'my-key-alias'
-            keyPassword 'my-password'
-        }
-    }
-
     defaultConfig {
         applicationId "com.example.myapplication"
         minSdkVersion 21
@@ -29,7 +20,6 @@ android {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-            signingConfig signingConfigs.release
         }
     }
     compileOptions {
