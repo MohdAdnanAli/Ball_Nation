@@ -1,9 +1,12 @@
-package com.example.myapplication;
+package com.example.myapplication.core;
 
 import android.animation.AnimatorInflater;
 import android.animation.AnimatorSet;
 import android.app.Service;
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.graphics.PixelFormat;
 import android.os.IBinder;
@@ -16,6 +19,11 @@ import android.view.WindowManager;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.os.Handler;
+
+import com.example.myapplication.R;
+import com.example.myapplication.features.SmartFeatureModule;
+import com.example.myapplication.ui.MainActivity;
+
 import java.util.Calendar;
 
 public class FloatingBallService extends Service {
@@ -33,6 +41,23 @@ public class FloatingBallService extends Service {
     private WindowManager.LayoutParams ballParams;
     private WindowManager.LayoutParams textParams;
     private SharedPreferences sharedPreferences;
+    private boolean isHiddenForPayment = false;
+
+    private final BroadcastReceiver paymentAppReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            String action = intent.getAction();
+            if (action != null) {
+                if (action.equals(SmartFeatureModule.ACTION_PAYMENT_APP_OPENED)) {
+                    hideFloatingBall();
+                    isHiddenForPayment = true;
+                } else if (action.equals(SmartFeatureModule.ACTION_PAYMENT_APP_CLOSED)) {
+                    showFloatingBall();
+                    isHiddenForPayment = false;
+                }
+            }
+        }
+    };
 
     private Runnable inactivityRunnable = new Runnable() {
         @Override
@@ -102,11 +127,17 @@ public class FloatingBallService extends Service {
         breathingAnimation.setTarget(floatingBall);
         breathingAnimation.start();
 
+        IntentFilter filter = new IntentFilter();
+        filter.addAction(SmartFeatureModule.ACTION_PAYMENT_APP_OPENED);
+        filter.addAction(SmartFeatureModule.ACTION_PAYMENT_APP_CLOSED);
+        registerReceiver(paymentAppReceiver, filter);
+
         startInactivityTimer();
 
         gestureDetector = new GestureDetector(this, new GestureDetector.SimpleOnGestureListener() {
             @Override
             public boolean onSingleTapConfirmed(MotionEvent e) {
+                if (isHiddenForPayment) return true;
                 resetInactivityTimer();
                 tapCount++;
                 if (tapCount == 1) {
@@ -116,12 +147,10 @@ public class FloatingBallService extends Service {
                             if (tapCount == 1) {
                                 greetingText.setText(getGreeting());
 
-                                // Manually measure the view to get its dimensions
                                 greetingText.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED);
                                 int textWidth = greetingText.getMeasuredWidth();
                                 int textHeight = greetingText.getMeasuredHeight();
 
-                                // Calculate the position of the speech bubble
                                 textParams.x = ballParams.x - (textWidth - floatingBall.getWidth()) / 2;
                                 textParams.y = ballParams.y - textHeight;
                                 windowManager.updateViewLayout(greetingText, textParams);
@@ -154,6 +183,7 @@ public class FloatingBallService extends Service {
 
             @Override
             public boolean onTouch(View v, MotionEvent event) {
+                if (isHiddenForPayment) return true;
                 if (isPeeking) {
                     floatingBall.setAlpha(1.0f);
                     isPeeking = false;
@@ -184,6 +214,15 @@ public class FloatingBallService extends Service {
                 return false;
             }
         });
+    }
+
+    private void hideFloatingBall() {
+        floatingBall.setVisibility(View.GONE);
+        greetingText.setVisibility(View.GONE);
+    }
+
+    private void showFloatingBall() {
+        floatingBall.setVisibility(View.VISIBLE);
     }
 
     private void startInactivityTimer() {
@@ -224,6 +263,7 @@ public class FloatingBallService extends Service {
     @Override
     public void onDestroy() {
         super.onDestroy();
+        unregisterReceiver(paymentAppReceiver);
         inactivityHandler.removeCallbacks(inactivityRunnable);
 
         if (ballParams != null) {

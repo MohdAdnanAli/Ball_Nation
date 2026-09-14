@@ -1,4 +1,4 @@
-package com.example.myapplication;
+package com.example.myapplication.ui;
 
 import android.animation.AnimatorSet;
 import android.animation.AnimatorInflater;
@@ -14,6 +14,9 @@ import android.widget.Toast;
 
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
+
+import com.example.myapplication.R;
+import com.example.myapplication.core.FloatingBallService;
 
 public class MainActivity extends AppCompatActivity {
 

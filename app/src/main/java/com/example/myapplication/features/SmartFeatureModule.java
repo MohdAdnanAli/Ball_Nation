@@ -1,6 +1,7 @@
-package com.example.myapplication;
+package com.example.myapplication.features;
 
 import android.accessibilityservice.AccessibilityService;
+import android.content.Intent;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
 
@@ -8,20 +9,34 @@ public class SmartFeatureModule extends AccessibilityService {
 
     private static SmartFeatureModule instance;
     private final StringBuilder screenContent = new StringBuilder();
+    private String currentApp = "";
 
-    public static SmartFeatureModule getInstance() {
-        return instance;
-    }
+    public static final String ACTION_PAYMENT_APP_OPENED = "com.example.myapplication.ACTION_PAYMENT_APP_OPENED";
+    public static final String ACTION_PAYMENT_APP_CLOSED = "com.example.myapplication.ACTION_PAYMENT_APP_CLOSED";
 
     @Override
     public void onAccessibilityEvent(AccessibilityEvent event) {
+        if (event.getEventType() == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
+            String packageName = event.getPackageName() != null ? event.getPackageName().toString() : "";
+            if (!packageName.equals(currentApp)) {
+                boolean wasPaymentApp = PaymentSecurityModule.isPaymentApp(currentApp);
+                boolean isPaymentApp = PaymentSecurityModule.isPaymentApp(packageName);
+
+                if (wasPaymentApp && !isPaymentApp) {
+                    sendBroadcast(new Intent(ACTION_PAYMENT_APP_CLOSED));
+                } else if (!wasPaymentApp && isPaymentApp) {
+                    sendBroadcast(new Intent(ACTION_PAYMENT_APP_OPENED));
+                }
+                currentApp = packageName;
+            }
+        }
+
         AccessibilityNodeInfo source = event.getSource();
         if (source != null) {
             synchronized (screenContent) {
                 screenContent.setLength(0);
                 getTextFromNode(source);
             }
-            source.recycle();
         }
     }
 
@@ -58,7 +73,10 @@ public class SmartFeatureModule extends AccessibilityService {
         instance = null;
         super.onDestroy();
     }
-
+    
+    public static SmartFeatureModule getInstance() {
+        return instance;
+    }
 
     public String getScreenContent() {
         synchronized (screenContent) {
